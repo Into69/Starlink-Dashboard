@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+grpcio>=1.60.0
+grpcio-tools>=1.60.0
+grpcio-reflection>=1.60.0
+yagrc>=1.1.1
+protobuf>=4.25.0
+websockets
+aiofiles
+python-dotenv

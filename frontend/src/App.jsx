@@ -25,7 +25,8 @@ function Shell() {
     <LiveContext.Provider value={ctx}>
       <div className="flex flex-col" style={{ height: '100dvh', background: '#0a0c10' }}>
         <Header
-          connected={live.connected}
+          wsConnected={live.connected}
+          dishConnected={live.dishConnected}
           dishAddress={settings.dishAddress}
         />
 

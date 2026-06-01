@@ -145,7 +145,7 @@ green "  Backend dependencies ready."
 if [[ "$PROD" -eq 1 && -n "$NPM" ]]; then
   yellow "-> Installing frontend dependencies …"
   cd "$SCRIPT_DIR/frontend"
-  "$NPM" install -q
+  "$NPM" ci -q
 
   yellow "-> Building React app …"
   "$NPM" run build
@@ -173,7 +173,7 @@ FRONTEND_PID=""
 if [[ "$PROD" -eq 0 && -n "$NPM" ]]; then
   yellow "-> Starting Vite dev server on http://localhost:${FRONTEND_PORT} …"
   cd "$SCRIPT_DIR/frontend"
-  "$NPM" install -q
+  "$NPM" ci -q
   "$NPM" run dev -- --port "$FRONTEND_PORT" &
   FRONTEND_PID=$!
   cd "$SCRIPT_DIR"

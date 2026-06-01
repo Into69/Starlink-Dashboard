@@ -34,6 +34,9 @@ _dish_address: str = "192.168.100.1:9200"
 # Latest parsed status snapshot
 _current: dict = {}
 
+# Whether the last gRPC status fetch succeeded
+_dish_ok: bool = False
+
 # Rolling 900-point history deque; each entry is one second of data
 _history: deque = deque(maxlen=HISTORY_MAXLEN)
 
@@ -85,14 +88,16 @@ async def start_polling(address: str = "192.168.100.1:9200") -> None:
 # ── background tasks ─────────────────────────────────────────────────────────
 
 async def _poll_status() -> None:
-    global _current
+    global _current, _dish_ok
     backoff = 1.0
     while True:
         try:
             snapshot = await asyncio.get_event_loop().run_in_executor(
                 None, _fetch_status
             )
+            snapshot["dish_connected"] = True
             _current = snapshot
+            _dish_ok = True
             backoff = 1.0
             for cb in list(_ws_callbacks):
                 try:
@@ -101,6 +106,14 @@ async def _poll_status() -> None:
                     pass
         except starlink_grpc.GrpcError as exc:
             logger.warning("status poll failed: %s (retry in %.0fs)", exc, backoff)
+            _dish_ok = False
+            # Broadcast the disconnected state so the UI updates immediately
+            error_msg = {"dish_connected": False, "timestamp": int(time.time())}
+            for cb in list(_ws_callbacks):
+                try:
+                    await cb(error_msg)
+                except Exception:
+                    pass
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 60.0)
             continue

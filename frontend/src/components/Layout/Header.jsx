@@ -1,7 +1,11 @@
 import { NavLink } from 'react-router-dom'
 import { IconSettings } from '@tabler/icons-react'
 
-export default function Header({ connected, dishAddress }) {
+export default function Header({ wsConnected, dishConnected, dishAddress }) {
+  const dotColor  = !wsConnected ? '#4a5568' : dishConnected ? '#22c55e' : '#ef4444'
+  const dotGlow   = !wsConnected ? 'none'    : dishConnected ? '0 0 6px #22c55e' : '0 0 6px #ef4444'
+  const label     = !wsConnected ? 'Disconnected' : dishConnected ? 'Connected — dish online' : 'Dish unreachable'
+
   return (
     <header
       className="flex items-center justify-between px-4 shrink-0"
@@ -29,16 +33,16 @@ export default function Header({ connected, dishAddress }) {
             style={{
               width: 7,
               height: 7,
-              background: connected ? '#22c55e' : '#4a5568',
-              boxShadow: connected ? '0 0 6px #22c55e' : 'none',
+              background: dotColor,
+              boxShadow: dotGlow,
               transition: 'background 0.3s, box-shadow 0.3s',
             }}
           />
           <span
             className="font-sans"
-            style={{ fontSize: 11, color: connected ? '#22c55e' : '#4a5568' }}
+            style={{ fontSize: 11, color: dotColor }}
           >
-            {connected ? 'Connected — dish online' : 'Disconnected'}
+            {label}
           </span>
         </div>
 

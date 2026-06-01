@@ -11,10 +11,11 @@ const WS_URL = `ws://${window.location.host}/ws/live`
  *   error      — last error string or null
  */
 export function useLiveData() {
-  const [data, setData]           = useState(null)
-  const [history, setHistory]     = useState([])
-  const [connected, setConnected] = useState(false)
-  const [error, setError]         = useState(null)
+  const [data, setData]               = useState(null)
+  const [history, setHistory]         = useState([])
+  const [connected, setConnected]     = useState(false)
+  const [dishConnected, setDishConn]  = useState(false)
+  const [error, setError]             = useState(null)
   const wsRef    = useRef(null)
   const timerRef = useRef(null)
 
@@ -34,6 +35,12 @@ export function useLiveData() {
         const msg = JSON.parse(evt.data)
         // ignore keepalive pings
         if (msg.type === 'ping') return
+        // every message carries dish_connected; error frames only have that field
+        if (msg.dish_connected === false) {
+          setDishConn(false)
+          return
+        }
+        setDishConn(true)
         setData(msg)
         setHistory(prev => {
           const next = [...prev, msg]
@@ -50,6 +57,7 @@ export function useLiveData() {
 
     ws.onclose = () => {
       setConnected(false)
+      setDishConn(false)
       // exponential backoff reconnect, capped at 10s
       timerRef.current = setTimeout(connect, Math.min(
         1000 * (2 ** Math.min((wsRef.current?._retries ?? 0), 4)),
@@ -67,5 +75,5 @@ export function useLiveData() {
     }
   }, [connect])
 
-  return { data, history, connected, error }
+  return { data, history, connected, dishConnected, error }
 }

@@ -1,10 +1,11 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { createContext, useContext } from 'react'
 import { useLiveData }   from './hooks/useLiveData'
 import { useAlertLog }   from './hooks/useAlertLog'
 import { useSettings }   from './hooks/useSettings'
-import Sidebar  from './components/Layout/Sidebar'
-import Header   from './components/Layout/Header'
+import Sidebar    from './components/Layout/Sidebar'
+import Header     from './components/Layout/Header'
+import NoDishPanel, { NoDishBanner } from './components/NoDishPanel'
 import Dashboard   from './pages/Dashboard'
 import Diagnostics from './pages/Diagnostics'
 import Devices     from './pages/Devices'
@@ -13,6 +14,33 @@ import Settings    from './pages/Settings'
 
 export const LiveContext = createContext(null)
 export const useLive     = () => useContext(LiveContext)
+
+function MainContent() {
+  const { data, dishConnected } = useContext(LiveContext)
+  const location = useLocation()
+  const onSettings = location.pathname === '/settings'
+
+  // No data ever received and dish still unreachable → show full troubleshoot panel
+  // (always allow Settings through so the user can change the dish address)
+  if (!dishConnected && !data && !onSettings) {
+    return <NoDishPanel />
+  }
+
+  return (
+    <>
+      {/* Slim banner when dish dropped mid-session */}
+      {!dishConnected && data && <NoDishBanner />}
+
+      <Routes>
+        <Route path="/"            element={<Dashboard />}   />
+        <Route path="/diagnostics" element={<Diagnostics />} />
+        <Route path="/devices"     element={<Devices />}     />
+        <Route path="/alerts"      element={<Alerts />}      />
+        <Route path="/settings"    element={<Settings />}    />
+      </Routes>
+    </>
+  )
+}
 
 function Shell() {
   const live                    = useLiveData()
@@ -33,13 +61,7 @@ function Shell() {
         <div className="flex flex-1 min-h-0">
           <Sidebar />
           <main className="flex-1 overflow-y-auto p-4">
-            <Routes>
-              <Route path="/"            element={<Dashboard />}   />
-              <Route path="/diagnostics" element={<Diagnostics />} />
-              <Route path="/devices"     element={<Devices />}     />
-              <Route path="/alerts"      element={<Alerts />}      />
-              <Route path="/settings"    element={<Settings />}    />
-            </Routes>
+            <MainContent />
           </main>
         </div>
       </div>

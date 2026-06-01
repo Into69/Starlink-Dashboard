@@ -38,6 +38,29 @@ green()  { printf '\033[0;32m%s\033[0m\n' "$*"; }
 yellow() { printf '\033[0;33m%s\033[0m\n' "$*"; }
 bold()   { printf '\033[1m%s\033[0m\n'    "$*"; }
 
+# ── auto-install Node.js on Debian / Raspberry Pi OS ─────────────────────────
+install_nodejs() {
+  yellow "-> Node.js not found — installing via NodeSource (requires sudo) …"
+
+  # Ensure curl is available
+  if ! command -v curl &>/dev/null; then
+    yellow "   Installing curl …"
+    sudo apt-get install -y curl
+  fi
+
+  # NodeSource LTS (v20) — works on arm64 and armv7l (Pi 3/4/5)
+  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+  sudo apt-get install -y nodejs
+
+  if ! command -v npm &>/dev/null; then
+    red "ERROR: Node.js installation failed. Please install manually:"
+    red "  https://nodejs.org/en/download"
+    exit 1
+  fi
+
+  green "  Node.js $(node --version) / npm $(npm --version) installed."
+}
+
 # ── detect python ─────────────────────────────────────────────────────────────
 PYTHON=""
 for cmd in python3 python; do
@@ -57,7 +80,7 @@ if [[ -z "$PYTHON" ]]; then
   exit 1
 fi
 
-# ── detect node / npm (needed for dev mode and initial prod build) ─────────────
+# ── detect or install Node.js / npm ───────────────────────────────────────────
 NPM=""
 for cmd in npm npm.cmd; do
   if command -v "$cmd" &>/dev/null; then
@@ -67,14 +90,21 @@ for cmd in npm npm.cmd; do
 done
 
 if [[ -z "$NPM" ]]; then
+  # Production mode with a pre-built dist: Node not strictly needed
   if [[ "$PROD" -eq 1 && -d "$SCRIPT_DIR/frontend/dist" ]]; then
-    yellow "npm not found but frontend/dist/ already exists — skipping build step"
+    yellow "npm not found but frontend/dist/ already exists — skipping build step."
+  # On Debian/Pi we can auto-install via apt + NodeSource
+  elif command -v apt-get &>/dev/null; then
+    install_nodejs
+    NPM="npm"
   else
-    red "ERROR: npm not found. Install Node.js from https://nodejs.org"
+    red "ERROR: npm not found and auto-install is only supported on Debian/Ubuntu/Raspberry Pi OS."
+    red "  Please install Node.js 18+ from https://nodejs.org then re-run ./start.sh"
     exit 1
   fi
 fi
 
+# ── banner ────────────────────────────────────────────────────────────────────
 echo ""
 bold "┌─ Starlink Monitor ──────────────────────────────────────┐"
 if [[ "$PROD" -eq 1 ]]; then
@@ -83,15 +113,15 @@ else
 bold "│  Mode   : Development (two processes)                   │"
 fi
 bold "│  Python : $("$PYTHON" --version)"
+[[ -n "$NPM" ]] && bold "│  Node   : $(node --version) / npm $("$NPM" --version)"
 bold "│  Dish   : $DISH_ADDRESS"
 bold "└─────────────────────────────────────────────────────────┘"
 echo ""
 
-# ── create / reuse virtual environment ────────────────────────────────────────
+# ── create / reuse Python virtual environment ─────────────────────────────────
 if [[ ! -f "$VENV_DIR/bin/activate" ]]; then
   yellow "-> Creating Python virtual environment at backend/.venv …"
 
-  # python3-venv may need to be installed separately on Debian/Pi OS
   if ! "$PYTHON" -m venv "$VENV_DIR" 2>/dev/null; then
     red "ERROR: could not create venv. On Raspberry Pi / Debian, run:"
     red "  sudo apt install python3-venv python3-full"
@@ -102,17 +132,16 @@ else
   green "  Reusing existing virtual environment at backend/.venv"
 fi
 
-# All subsequent Python commands use the venv
 VENV_PYTHON="$VENV_DIR/bin/python"
 VENV_PIP="$VENV_DIR/bin/pip"
 
-# ── install backend dependencies into the venv ─────────────────────────────────
+# ── install backend dependencies ──────────────────────────────────────────────
 yellow "-> Installing / updating backend dependencies …"
 "$VENV_PIP" install --upgrade pip -q
 "$VENV_PIP" install -r "$SCRIPT_DIR/backend/requirements.txt" -q
 green "  Backend dependencies ready."
 
-# ── production frontend build (if requested) ───────────────────────────────────
+# ── production frontend build ─────────────────────────────────────────────────
 if [[ "$PROD" -eq 1 && -n "$NPM" ]]; then
   yellow "-> Installing frontend dependencies …"
   cd "$SCRIPT_DIR/frontend"
@@ -123,7 +152,7 @@ if [[ "$PROD" -eq 1 && -n "$NPM" ]]; then
   cd "$SCRIPT_DIR"
   green "  Frontend built — will be served by FastAPI."
 elif [[ "$PROD" -eq 1 ]]; then
-  yellow "  Skipping frontend build (npm not available, using existing dist/)."
+  yellow "  Skipping frontend build (using existing dist/)."
 fi
 
 # ── launch backend ─────────────────────────────────────────────────────────────
@@ -139,7 +168,7 @@ DISH_ADDRESS="$DISH_ADDRESS" SERVE_STATIC="$SERVE_STATIC_VAL" \
     ${PROD:+--workers 2} &
 BACKEND_PID=$!
 
-# ── launch frontend dev server (dev mode only) ─────────────────────────────────
+# ── launch Vite dev server ─────────────────────────────────────────────────────
 FRONTEND_PID=""
 if [[ "$PROD" -eq 0 && -n "$NPM" ]]; then
   yellow "-> Starting Vite dev server on http://localhost:${FRONTEND_PORT} …"
@@ -150,7 +179,7 @@ if [[ "$PROD" -eq 0 && -n "$NPM" ]]; then
   cd "$SCRIPT_DIR"
 fi
 
-# ── ready message ──────────────────────────────────────────────────────────────
+# ── ready ──────────────────────────────────────────────────────────────────────
 sleep 2
 echo ""
 green "Starlink Monitor is running"

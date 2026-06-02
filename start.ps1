@@ -135,8 +135,8 @@ if (-not (Test-Path $VENV_PYTHON)) {
 
 # ── install backend dependencies ──────────────────────────────────────────────
 Yellow '-> Installing / updating backend dependencies ...'
-& $VENV_PIP install --upgrade pip -q
-& $VENV_PIP install -r (Join-Path $BACKEND_DIR 'requirements.txt') -q
+& $VENV_PYTHON -m pip install --upgrade pip -q
+& $VENV_PYTHON -m pip install -r (Join-Path $BACKEND_DIR 'requirements.txt') -q
 if ($LASTEXITCODE -ne 0) { Red 'ERROR: pip install failed.'; exit 1 }
 Green 'Backend dependencies ready.'
 

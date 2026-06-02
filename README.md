@@ -76,9 +76,9 @@ instantly.
 .\start.ps1
 ```
 
-> On Windows, the backend opens in a second console window titled
-> **"Starlink Monitor — Backend"**. Closing or Ctrl+C-ing the Vite window
-> (this window) stops both.
+> On Windows, both processes run in the same terminal window.
+> Backend output is printed in cyan `[backend]`, Vite output in yellow `[vite]`.
+> Ctrl+C stops everything.
 
 ### Production / Raspberry Pi
 

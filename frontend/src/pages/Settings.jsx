@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { IconPlugConnected, IconPlugConnectedX, IconRefresh } from '@tabler/icons-react'
+import { IconPlugConnected, IconPlugConnectedX, IconRefresh, IconRadar } from '@tabler/icons-react'
 import { useLive } from '../App'
 
 // ── sub-components ────────────────────────────────────────────────────────────
@@ -32,8 +32,19 @@ function FieldRow({ label, hint, children }) {
 
 const POLL_OPTIONS = [1, 2, 5, 10]
 
+function fmtUptime(s) {
+  if (s == null) return '—'
+  const d = Math.floor(s / 86400)
+  const h = Math.floor((s % 86400) / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  if (d > 0) return `${d}d ${h}h`
+  if (h > 0) return `${h}h ${m}m`
+  return `${m}m`
+}
+
 export default function Settings() {
-  const { settings, updateSetting, connected } = useLive()
+  const { settings, updateSetting, connected, dishConnected, data } = useLive()
+  const wsUrl = `ws://${window.location.host}/ws/live`
 
   // Local state for the IP field (controlled while editing)
   const [ipDraft,     setIpDraft]     = useState(settings.dishAddress)
@@ -124,18 +135,71 @@ export default function Settings() {
         </FieldRow>
 
         {/* Live WS status */}
-        <div className="flex items-center gap-2">
-          <span
-            className="inline-block rounded-full"
-            style={{
-              width: 7, height: 7,
-              background: connected ? '#22c55e' : '#4a5568',
-              boxShadow: connected ? '0 0 5px #22c55e' : 'none',
-            }}
-          />
-          <span style={{ fontSize: 11, color: connected ? '#22c55e' : '#4a5568' }}>
-            WebSocket {connected ? 'connected' : 'disconnected'}
-          </span>
+        <div
+          className="rounded-lg p-3 space-y-2"
+          style={{ background: '#0a0c10', border: '1px solid #1e2330' }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span
+                className="inline-block rounded-full shrink-0"
+                style={{
+                  width: 7, height: 7,
+                  background: connected ? '#22c55e' : '#4a5568',
+                  boxShadow: connected ? '0 0 5px #22c55e' : 'none',
+                }}
+              />
+              <span style={{ fontSize: 11, color: connected ? '#22c55e' : '#4a5568', fontWeight: 500 }}>
+                WebSocket {connected ? 'connected' : 'disconnected'}
+              </span>
+            </div>
+            {connected && (
+              <span style={{ fontSize: 9, color: '#2a3344', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                live · 1 s
+              </span>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex justify-between items-baseline gap-2">
+              <span style={{ fontSize: 10, color: '#2a3344', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Endpoint</span>
+              <code className="mono" style={{ fontSize: 10, color: '#4a5568' }}>{wsUrl}</code>
+            </div>
+            <div className="flex justify-between items-baseline gap-2">
+              <span style={{ fontSize: 10, color: '#2a3344', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Dish gRPC</span>
+              <div className="flex items-center gap-1.5">
+                <span
+                  className="inline-block rounded-full"
+                  style={{
+                    width: 5, height: 5,
+                    background: dishConnected ? '#22c55e' : '#ef4444',
+                    boxShadow: dishConnected ? '0 0 4px #22c55e' : 'none',
+                  }}
+                />
+                <code className="mono" style={{ fontSize: 10, color: dishConnected ? '#22c55e' : '#ef4444' }}>
+                  {settings.dishAddress}
+                </code>
+              </div>
+            </div>
+            {data?.software_version && (
+              <div className="flex justify-between items-baseline gap-2">
+                <span style={{ fontSize: 10, color: '#2a3344', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Firmware</span>
+                <code className="mono" style={{ fontSize: 10, color: '#4a5568' }}>{data.software_version}</code>
+              </div>
+            )}
+            {data?.uptime_s != null && (
+              <div className="flex justify-between items-baseline gap-2">
+                <span style={{ fontSize: 10, color: '#2a3344', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Dish uptime</span>
+                <span style={{ fontSize: 10, color: '#4a5568' }}>{fmtUptime(data.uptime_s)}</span>
+              </div>
+            )}
+            {data?.state && (
+              <div className="flex justify-between items-baseline gap-2">
+                <span style={{ fontSize: 10, color: '#2a3344', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Dish state</span>
+                <span style={{ fontSize: 10, color: data.state === 'CONNECTED' ? '#22c55e' : '#f59e0b' }}>{data.state}</span>
+              </div>
+            )}
+          </div>
         </div>
       </Card>
 

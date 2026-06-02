@@ -49,7 +49,7 @@ desktop.ini
 # Vendored source clone (not needed in the repo — starlink_grpc.py is copied)
 backend/_starlink_src/
 
-# Virtual environment created by start.sh
+# Virtual environment created by start.sh / start.ps1
 backend/.venv/
 
 # Logs

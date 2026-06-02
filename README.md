@@ -26,6 +26,8 @@ dish).
 
 ## Quick start
 
+### Linux / macOS / Raspberry Pi
+
 ```bash
 git clone <this-repo> starlink-dashboard
 cd starlink-dashboard
@@ -33,9 +35,28 @@ chmod +x start.sh
 ./start.sh
 ```
 
+Open **http://localhost:5173** in your browser.  
+The backend API is at **http://localhost:8000/docs**.
+
+### Windows
+
+```powershell
+git clone <this-repo> starlink-dashboard
+cd starlink-dashboard
+.\start.ps1
+```
+
 Open **http://localhost:5173** in your browser.
 
-The backend API is at **http://localhost:8000/docs**.
+> **First-time only — execution policy**  
+> If you see "running scripts is disabled", run this once in an elevated PowerShell window, then retry:
+> ```powershell
+> Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+> ```
+> Or bypass it per-invocation:
+> ```powershell
+> pwsh -ExecutionPolicy Bypass -File .\start.ps1
+> ```
 
 ---
 
@@ -48,16 +69,28 @@ Hot-module reload is enabled — save any `.jsx` file and the browser updates
 instantly.
 
 ```bash
+# Linux / macOS / Pi
 ./start.sh
+
+# Windows
+.\start.ps1
 ```
+
+> On Windows, the backend opens in a second console window titled
+> **"Starlink Monitor — Backend"**. Closing or Ctrl+C-ing the Vite window
+> (this window) stops both.
 
 ### Production / Raspberry Pi
 
 Builds the React app once, then serves everything from a single FastAPI
-process on `:8000`.  No Node.js needs to stay running.
+process on `:8000`.  No Node.js needs to stay running after the build.
 
 ```bash
+# Linux / macOS / Pi
 ./start.sh --prod
+
+# Windows
+.\start.ps1 -Prod
 ```
 
 Open **http://localhost:8000**.
@@ -100,13 +133,19 @@ sudo systemctl enable --now starlink-monitor
 | `FRONTEND_PORT` | `5173` | Vite dev-server port (dev mode) |
 | `SERVE_STATIC` | `0` | Set `1` to serve `frontend/dist/` from FastAPI |
 
+**Windows — setting env vars before launching:**
+```powershell
+$env:BACKEND_PORT = '8001'; .\start.ps1 -Prod
+```
+
 ---
 
 ## Project structure
 
 ```
 starlink-dashboard/
-├── start.sh                  # Startup script
+├── start.sh                  # Startup script (Linux / macOS / Pi)
+├── start.ps1                 # Startup script (Windows PowerShell)
 ├── backend/
 │   ├── main.py               # FastAPI app + lifespan
 │   ├── requirements.txt
@@ -240,5 +279,23 @@ The backend probes this address automatically.
 
 **Port already in use**
 ```bash
+# Linux / macOS / Pi
 BACKEND_PORT=8001 FRONTEND_PORT=5174 ./start.sh
 ```
+```powershell
+# Windows
+$env:BACKEND_PORT = '8001'; $env:FRONTEND_PORT = '5174'; .\start.ps1
+```
+
+**Windows: "running scripts is disabled"**
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+**Windows: `pip install grpcio` fails**  
+- Ensure you have the [Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe) installed.  
+- Or install a pre-built wheel: `pip install grpcio --only-binary=:all:`
+
+**Windows: backend window closes immediately**  
+Open a terminal, `cd` into the repo, and run `.\start.ps1` manually so you
+can read any error messages before the window closes.

@@ -154,6 +154,34 @@ if ($Prod -and $NPM) {
     Yellow '   Skipping frontend build (using existing dist\).'
 }
 
+# ── port helpers ─────────────────────────────────────────────────────────────
+
+function Clear-Port {
+    param([int]$Port)
+    $conns = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+    if (-not $conns) { return }
+    foreach ($conn in $conns) {
+        $proc = Get-Process -Id $conn.OwningProcess -ErrorAction SilentlyContinue
+        if ($proc) {
+            Yellow "  Port $Port is held by '$($proc.Name)' (PID $($proc.Id)) — stopping it ..."
+            # taskkill /T kills the whole process tree, not just the parent cmd window
+            taskkill /F /T /PID $proc.Id 2>$null | Out-Null
+        }
+    }
+    Start-Sleep -Milliseconds 600   # give the OS a moment to release the port
+}
+
+function Assert-PortFree {
+    param([int]$Port)
+    $conn = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+    if ($conn) {
+        Red "ERROR: port $Port is still in use after cleanup."
+        Red "  Run:  netstat -ano | findstr :$Port"
+        Red "  Then: taskkill /F /PID <pid>"
+        exit 1
+    }
+}
+
 # ── shared uvicorn arguments ──────────────────────────────────────────────────
 $env:DISH_ADDRESS = $DISH_ADDRESS
 $env:SERVE_STATIC = if ($Prod) { '1' } else { '0' }
@@ -165,7 +193,15 @@ $uvicornArgs = @(
     '--app-dir', $BACKEND_DIR
 )
 
-# ── production: single foreground process ────────────────────────────────────
+# ── clear ports before binding ────────────────────────────────────────────────
+Clear-Port ([int]$BACKEND_PORT)
+Assert-PortFree ([int]$BACKEND_PORT)
+if (-not $Prod -and $NPM) {
+    Clear-Port ([int]$FRONTEND_PORT)
+    Assert-PortFree ([int]$FRONTEND_PORT)
+}
+
+# ── production: single foreground process ─────────────────────────────────────
 if ($Prod) {
     Write-Host ''
     Green 'Starlink Monitor is running'
@@ -179,10 +215,9 @@ if ($Prod) {
 
 # ── development: backend in a new window, Vite in this window ─────────────────
 
-# Build the command string for the new backend window
-$escapedPython  = '"' + $VENV_PYTHON  + '"'
-$escapedAppDir  = '"' + $BACKEND_DIR  + '"'
-$backendCmd = "$escapedPython -m uvicorn main:app --host 0.0.0.0 --port $BACKEND_PORT --app-dir $escapedAppDir"
+$escapedPython = '"' + $VENV_PYTHON + '"'
+$escapedAppDir = '"' + $BACKEND_DIR + '"'
+$backendCmd    = "$escapedPython -m uvicorn main:app --host 0.0.0.0 --port $BACKEND_PORT --app-dir $escapedAppDir"
 
 Yellow '-> Starting backend in a new window ...'
 $backendProc = Start-Process -FilePath 'cmd.exe' `
@@ -208,9 +243,9 @@ Write-Host ''
 try {
     & $NPM run dev -- --port $FRONTEND_PORT
 } finally {
-    # Kill the backend window when Vite exits or Ctrl+C is pressed
+    # taskkill /T kills cmd.exe AND its uvicorn child in one shot
     if ($backendProc -and -not $backendProc.HasExited) {
-        Stop-Process -Id $backendProc.Id -Force -ErrorAction SilentlyContinue
+        taskkill /F /T /PID $backendProc.Id 2>$null | Out-Null
     }
     Pop-Location
 }
